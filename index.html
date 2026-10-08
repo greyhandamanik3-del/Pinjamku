@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>PinjamKu</title>
+<meta name="theme-color" content="#2D6A4F" />
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💸</text></svg>" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg:#F4F2EC; --bg-elev:#FFFFFF; --ink:#1B2420; --ink-soft:#5B6760;
+  --line:#DEDAD0; --brand:#2D6A4F; --brand-ink:#FFFFFF; --brand-soft:#E4EFE9;
+  --warn:#B5541C; --warn-soft:#F6E6DA; --danger:#A8322A; --danger-soft:#F6E1DE;
+  --ok:#2D6A4F; --ok-soft:#E4EFE9;
+  --radius:10px; --shadow:0 1px 2px rgba(20,24,20,.06), 0 8px 24px rgba(20,24,20,.05);
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  box-sizing: border-box;
+}
+:root[data-theme="dark"]{
+  --bg:#13161A; --bg-elev:#1B1F24; --ink:#ECEEEC; --ink-soft:#9BA3A0;
+  --line:#2A2F35; --brand:#4C9A75; --brand-ink:#0C1210; --brand-soft:#1C2B22;
+  --warn:#E08A4A; --warn-soft:#2E2015; --danger:#E4645A; --danger-soft:#2E1917;
+  --ok:#4C9A75; --ok-soft:#1C2B22;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#13161A; --bg-elev:#1B1F24; --ink:#ECEEEC; --ink-soft:#9BA3A0;
+    --line:#2A2F35; --brand:#4C9A75; --brand-ink:#0C1210; --brand-soft:#1C2B22;
+    --warn:#E08A4A; --warn-soft:#2E2015; --danger:#E4645A; --danger-soft:#2E1917;
+    --ok:#4C9A75; --ok-soft:#1C2B22;
+  }
+}
+*{box-sizing:border-box;}
+html,body{height:100%;}
+body{
+  margin:0; font-family:var(--font); background:var(--bg); color:var(--ink);
+  -webkit-font-smoothing:antialiased;
+}
+html{scroll-padding-top: env(safe-area-inset-top, 0px);}
+a{color:inherit;}
+button{font-family:inherit;}
+input,select,textarea{font-family:inherit;}
+
+.app{display:flex; min-height:100%;}
+
+/* Sidebar nav */
+.nav{
+  width:220px; flex:none; background:var(--bg-elev); border-right:1px solid var(--line);
+  padding:20px 14px; display:flex; flex-direction:column; gap:4px;
+  position:sticky; top:0; height:100vh; height:100dvh;
+}
+.nav-brand{display:flex; align-items:center; gap:10px; padding:4px 10px 18px;}
+.nav-brand .mark{width:30px;height:30px;border-radius:8px;background:var(--brand);display:flex;align-items:center;justify-content:center;color:var(--brand-ink);font-weight:700;font-size:15px;}
+.nav-brand .name{font-weight:700; font-size:17px; letter-spacing:-.01em;}
+.nav-item{
+  display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:8px;
+  cursor:pointer; color:var(--ink-soft); font-size:14px; font-weight:500; border:none; background:transparent;
+  text-align:left; width:100%;
+}
+.nav-item:hover{background:var(--brand-soft); color:var(--ink);}
+.nav-item.active{background:var(--brand); color:var(--brand-ink);}
+.nav-spacer{flex:1;}
+.theme-toggle{
+  display:flex; align-items:center; justify-content:space-between; padding:10px 12px;
+  border-radius:8px; border:1px solid var(--line); font-size:13px; color:var(--ink-soft);
+}
+.switch{position:relative; width:38px; height:22px; background:var(--line); border-radius:99px; cursor:pointer; border:none; flex:none;}
+.switch::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:var(--bg-elev);transition:transform .15s;}
+.switch.on{background:var(--brand);}
+.switch.on::after{transform:translateX(16px);}
+
+/* Main area */
+.main{flex:1; min-width:0; padding:26px 28px 60px; max-width:1180px; margin:0 auto; width:100%;}
+.topbar{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:22px; flex-wrap:wrap;}
+.topbar h1{font-size:22px; margin:0; letter-spacing:-.01em;}
+.topbar .sub{color:var(--ink-soft); font-size:13px; margin-top:2px;}
+
+.btn{
+  display:inline-flex; align-items:center; gap:6px; padding:9px 16px; border-radius:8px;
+  border:1px solid var(--line); background:var(--bg-elev); color:var(--ink); font-size:13.5px;
+  font-weight:600; cursor:pointer; white-space:nowrap;
+}
+.btn:hover{border-color:var(--ink-soft);}
+.btn-brand{background:var(--brand); color:var(--brand-ink); border-color:var(--brand);}
+.btn-brand:hover{opacity:.92;}
+.btn-danger{background:var(--danger-soft); color:var(--danger); border-color:transparent;}
+.btn-ghost{background:transparent; border-color:transparent;}
+.btn-sm{padding:6px 11px; font-size:12.5px;}
+.btn:disabled{opacity:.5; cursor:not-allowed;}
+
+/* Stat cards */
+.stats-grid{display:grid; grid-template-columns:repeat(auto-fit, minmax(190px,1fr)); gap:12px; margin-bottom:26px;}
+.stat-card{background:var(--bg-elev); border:1px solid var(--line); border-radius:var(--radius); padding:16px 18px;}
+.stat-card .label{font-size:12.5px; color:var(--ink-soft); margin-bottom:8px;}
+.stat-card .value{font-size:22px; font-weight:700; letter-spacing:-.01em;}
+.stat-card .value.small{font-size:19px;}
+
+.section{background:var(--bg-elev); border:1px solid var(--line); border-radius:var(--radius); margin-bottom:20px;}
+.section-head{display:flex; align-items:center; justify-content:space-between; padding:16px 18px; border-bottom:1px solid var(--line); gap:10px; flex-wrap:wrap;}
+.section-head h2{font-size:15.5px; margin:0;}
+
+/* Filters */
+.filters{display:flex; gap:8px; padding:14px 18px; flex-wrap:wrap; border-bottom:1px solid var(--line);}
+.input, .select{
+  padding:9px 12px; border-radius:8px; border:1px solid var(--line); background:var(--bg);
+  color:var(--ink); font-size:13.5px; outline:none;
+}
+.input:focus, .select:focus{border-color:var(--brand);}
+.search-input{flex:1; min-width:160px;}
+.chip-group{display:flex; gap:6px; flex-wrap:wrap;}
+.chip{padding:7px 13px; border-radius:99px; border:1px solid var(--line); background:var(--bg); font-size:12.5px; cursor:pointer; color:var(--ink-soft); font-weight:600;}
+.chip.active{background:var(--brand); border-color:var(--brand); color:var(--brand-ink);}
+
+/* Loan list */
+.loan-list{display:flex; flex-direction:column;}
+.loan-row{display:flex; align-items:center; gap:14px; padding:14px 18px; border-bottom:1px solid var(--line); cursor:pointer;}
+.loan-row:last-child{border-bottom:none;}
+.loan-row:hover{background:var(--brand-soft);}
+.avatar{width:38px;height:38px;border-radius:50%;background:var(--brand-soft);color:var(--brand);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex:none;}
+.loan-row .main-info{flex:1; min-width:0;}
+.loan-row .nm{font-weight:600; font-size:14.5px;}
+.loan-row .meta{font-size:12.5px; color:var(--ink-soft); margin-top:2px;}
+.loan-row .amt{text-align:right; flex:none;}
+.loan-row .amt .num{font-weight:700; font-size:14.5px;}
+.loan-row .amt .sisa{font-size:12px; color:var(--ink-soft); margin-top:2px;}
+.badge{display:inline-flex; align-items:center; padding:3px 9px; border-radius:99px; font-size:11.5px; font-weight:700;}
+.badge-aktif{background:var(--brand-soft); color:var(--brand);}
+.badge-lunas{background:var(--ok-soft); color:var(--ok);}
+.badge-terlambat{background:var(--danger-soft); color:var(--danger);}
+.empty{padding:50px 20px; text-align:center; color:var(--ink-soft); font-size:13.5px;}
+
+/* Modal */
+.overlay{position:fixed; inset:0; background:rgba(10,12,10,.45); display:flex; align-items:flex-end; justify-content:center; z-index:50; padding:0;}
+@media (min-width:640px){ .overlay{align-items:center; padding:20px;} }
+.modal{background:var(--bg-elev); width:100%; max-width:520px; border-radius:16px 16px 0 0; max-height:92vh; overflow-y:auto; border:1px solid var(--line);}
+@media (min-width:640px){ .modal{border-radius:14px;} }
+.modal-head{display:flex; align-items:center; justify-content:space-between; padding:18px 20px; border-bottom:1px solid var(--line); position:sticky; top:0; background:var(--bg-elev);}
+.modal-head h3{margin:0; font-size:16px;}
+.modal-body{padding:20px;}
+.modal-foot{padding:16px 20px; border-top:1px solid var(--line); display:flex; justify-content:flex-end; gap:8px; position:sticky; bottom:0; background:var(--bg-elev);}
+.field{margin-bottom:14px;}
+.field label{display:block; font-size:12.5px; font-weight:600; color:var(--ink-soft); margin-bottom:6px;}
+.field .input, .field .select, .field textarea{width:100%;}
+.field textarea{min-height:70px; resize:vertical; padding:9px 12px; border-radius:8px; border:1px solid var(--line); background:var(--bg); color:var(--ink);}
+.field-row{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+.close-x{background:none; border:none; cursor:pointer; color:var(--ink-soft); font-size:18px; padding:4px;}
+.form-err{color:var(--danger); font-size:12.5px; margin-top:4px; display:none;}
+
+/* Loan detail */
+.detail-top{display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;}
+.detail-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:14px; margin:18px 0;}
+.detail-item .label{font-size:12px; color:var(--ink-soft); margin-bottom:4px;}
+.detail-item .value{font-size:15px; font-weight:700;}
+.progress-bar{height:8px; background:var(--line); border-radius:99px; overflow:hidden; margin:6px 0 2px;}
+.progress-fill{height:100%; background:var(--brand);}
+.history-item{display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--line); font-size:13.5px;}
+.history-item:last-child{border-bottom:none;}
+.actions-row{display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;}
+
+/* Toast */
+.toast-wrap{position:fixed; bottom:calc(20px + env(safe-area-inset-bottom,0px)); left:50%; transform:translateX(-50%); z-index:100; display:flex; flex-direction:column; gap:8px; align-items:center;}
+.toast{background:var(--ink); color:var(--bg); padding:11px 18px; border-radius:8px; font-size:13.5px; box-shadow:var(--shadow); opacity:0; transform:translateY(8px); transition:all .2s;}
+.toast.show{opacity:1; transform:translateY(0);}
+
+/* Report */
+.report-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; padding:18px;}
+.chart-wrap{padding:6px 18px 22px;}
+.export-row{display:flex; gap:8px; padding:0 18px 18px; flex-wrap:wrap;}
+
+/* Mobile nav */
+.mobile-tabbar{display:none;}
+@media (max-width:820px){
+  .nav{display:none;}
+  .main{padding:18px 14px 90px;}
+  .mobile-tabbar{
+    display:flex; position:fixed; bottom:0; left:0; right:0; background:var(--bg-elev);
+    border-top:1px solid var(--line); padding:8px 6px calc(8px + env(safe-area-inset-bottom,0px));
+    z-index:40; justify-content:space-around;
+  }
+  .mobile-tabbar button{background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--ink-soft);font-size:10.5px;font-weight:600;padding:4px 10px;cursor:pointer;}
+  .mobile-tabbar button.active{color:var(--brand);}
+  .mobile-tabbar .ico{font-size:18px;}
+  .field-row{grid-template-columns:1fr;}
+}
+.hide{display:none !important;}
+.spin{display:inline-block; width:14px; height:14px; border:2px solid rgba(0,0,0,.2); border-top-color:var(--brand); border-radius:50%; animation:sp .7s linear infinite;}
+@keyframes sp{to{transform:rotate(360deg);}}
+.loading-screen{position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:var(--bg); z-index:200; flex-direction:column; gap:10px;}
+.loading-screen .mark{width:48px;height:48px;border-radius:12px;background:var(--brand);display:flex;align-items:center;justify-content:center;color:var(--brand-ink);font-weight:700;font-size:22px;}
+</style>
+</head>
+<body>
+
+<div id="loadingScreen" class="loading-screen">
+  <div class="mark">P</div>
+  <div style="font-size:13px;color:var(--ink-soft)">Memuat PinjamKu…</div>
+</div>
+
+<div class="app hide" id="appRoot">
+  <nav class="nav">
+    <div class="nav-brand">
+      <div class="mark">P</div>
+      <div class="name">PinjamKu</div>
+    </div>
+    <button class="nav-item active" data-page="dashboard">📊 &nbsp;Dashboard</button>
+    <button class="nav-item" data-page="pinjaman">💰 &nbsp;Pinjaman</button>
+    <button class="nav-item" data-page="laporan">📈 &nbsp;Laporan</button>
+    <div class="nav-spacer"></div>
+    <div class="theme-toggle">
+      <span id="themeLabel">Mode Gelap</span>
+      <button class="switch" id="themeSwitch"></button>
+    </div>
+  </nav>
+
+  <main class="main">
+    <!-- DASHBOARD PAGE -->
+    <section id="page-dashboard">
+      <div class="topbar">
+        <div>
+          <h1>Dashboard</h1>
+          <div class="sub" id="dashSub">Ringkasan seluruh pinjaman</div>
+        </div>
+        <button class="btn btn-brand" id="btnAddLoanDash">+ Tambah Pinjaman</button>
+      </div>
+      <div class="stats-grid" id="statsGrid"></div>
+
+      <div class="section">
+        <div class="section-head">
+          <h2>Pinjaman terbaru</h2>
+          <button class="btn btn-ghost btn-sm" data-goto="pinjaman">Lihat semua →</button>
+        </div>
+        <div class="loan-list" id="recentLoanList"></div>
+      </div>
+    </section>
+
+    <!-- PINJAMAN PAGE -->
+    <section id="page-pinjaman" class="hide">
+      <div class="topbar">
+        <div>
+          <h1>Daftar Pinjaman</h1>
+          <div class="sub" id="pinjamanSub">—</div>
+        </div>
+        <button class="btn btn-brand" id="btnAddLoanList">+ Tambah Pinjaman</button>
+      </div>
+      <div class="section">
+        <div class="filters">
+          <input class="input search-input" id="searchInput" placeholder="Cari nama atau nomor WhatsApp…" />
+          <div class="chip-group" id="filterChips">
+            <button class="chip active" data-f="semua">Semua</button>
+            <button class="chip" data-f="Aktif">Aktif</button>
+            <button class="chip" data-f="Lunas">Lunas</button>
+            <button class="chip" data-f="Terlambat">Terlambat</button>
+          </div>
+        </div>
+        <div class="loan-list" id="fullLoanList"></div>
+      </div>
+    </section>
+
+    <!-- LAPORAN PAGE -->
+    <section id="page-laporan" class="hide">
+      <div class="topbar">
+        <div>
+          <h1>Laporan</h1>
+          <div class="sub">Rekap total dan grafik bulanan</div>
+        </div>
+      </div>
+      <div class="section">
+        <div class="report-grid" id="reportGrid"></div>
+        <div class="chart-wrap">
+          <canvas id="monthlyChart" height="90"></canvas>
+        </div>
+        <div class="export-row">
+          <button class="btn" id="btnExportPdf">⬇ Ekspor PDF</button>
+          <button class="btn" id="btnExportExcel">⬇ Ekspor Excel</button>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<nav class="mobile-tabbar hide" id="mobileTab">
+  <button class="active" data-page="dashboard"><span class="ico">📊</span>Dashboard</button>
+  <button data-page="pinjaman"><span class="ico">💰</span>Pinjaman</button>
+  <button data-page="laporan"><span class="ico">📈</span>Laporan</button>
+</nav>
+
+<!-- Modal: Add/Edit Loan -->
+<div class="overlay hide" id="loanModalOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="loanModalTitle">Tambah Pinjaman</h3>
+      <button class="close-x" data-close="loanModalOverlay">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="loanId" />
+      <div class="field">
+        <label>Nama Peminjam *</label>
+        <input class="input" id="f_nama" placeholder="cth. Budi Santoso" />
+      </div>
+      <div class="field">
+        <label>Nomor WhatsApp *</label>
+        <input class="input" id="f_whatsapp" placeholder="cth. 628123456789" />
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Nominal Pinjaman (Rp) *</label>
+          <input class="input" id="f_nominal" type="number" min="0" placeholder="1000000" />
+        </div>
+        <div class="field">
+          <label>Keuntungan / Biaya (Rp)</label>
+          <input class="input" id="f_keuntungan" type="number" min="0" placeholder="100000" />
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Tanggal Pinjam *</label>
+          <input class="input" id="f_tgl_pinjam" type="date" />
+        </div>
+        <div class="field">
+          <label>Tanggal Jatuh Tempo *</label>
+          <input class="input" id="f_tgl_jatuh_tempo" type="date" />
+        </div>
+      </div>
+      <div class="field">
+        <label>Tenor</label>
+        <input class="input" id="f_tenor" placeholder="cth. 30 hari / 3 bulan" />
+      </div>
+      <div class="field">
+        <label>Catatan</label>
+        <textarea id="f_catatan" placeholder="Catatan tambahan (opsional)"></textarea>
+      </div>
+      <div class="form-err" id="loanFormErr"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" data-close="loanModalOverlay">Batal</button>
+      <button class="btn btn-brand" id="btnSaveLoan">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Loan Detail -->
+<div class="overlay hide" id="detailModalOverlay">
+  <div class="modal" style="max-width:580px;">
+    <div class="modal-head">
+      <h3>Detail Pinjaman</h3>
+      <button class="close-x" data-close="detailModalOverlay">✕</button>
+    </div>
+    <div class="modal-body" id="detailBody"></div>
+  </div>
+</div>
+
+<!-- Modal: Add Payment -->
+<div class="overlay hide" id="payModalOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Tambah Pembayaran</h3>
+      <button class="close-x" data-close="payModalOverlay">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="pay_loan_id" />
+      <div class="field">
+        <label>Sisa tagihan saat ini</label>
+        <div class="value" id="pay_sisa_display" style="font-weight:700;font-size:16px;"></div>
+      </div>
+      <div class="field">
+        <label>Nominal Pembayaran (Rp) *</label>
+        <input class="input" id="f_pay_nominal" type="number" min="0" placeholder="500000" />
+      </div>
+      <div class="field">
+        <label>Tanggal Pembayaran</label>
+        <input class="input" id="f_pay_tanggal" type="date" />
+      </div>
+      <div class="form-err" id="payFormErr"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" data-close="payModalOverlay">Batal</button>
+      <button class="btn btn-brand" id="btnSavePay">Simpan Pembayaran</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Confirm -->
+<div class="overlay hide" id="confirmOverlay">
+  <div class="modal" style="max-width:380px;">
+    <div class="modal-body" style="padding-top:22px;">
+      <div style="font-weight:700;font-size:15.5px;margin-bottom:6px;" id="confirmTitle">Yakin?</div>
+      <div style="font-size:13.5px;color:var(--ink-soft);" id="confirmMsg"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" data-close="confirmOverlay">Batal</button>
+      <button class="btn btn-danger" id="btnConfirmYes">Hapus</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+/* ===================== Supabase init ===================== */
+const SUPABASE_URL = "https://vacvbgigdfnbrhrevtlq.supabase.co";
+const SUPABASE_KEY = "sb_publishable_HT4YK7GED11rdvD296c9vA_1Mo52GuM";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+/* ===================== State ===================== */
+let loans = [];       // raw rows from peminjaman
+let payments = [];    // raw rows from pembayaran
+let currentFilter = "semua";
+let currentSearch = "";
+let monthlyChartInstance = null;
+let confirmCallback = null;
+
+/* ===================== Helpers ===================== */
+const rupiah = (n) => "Rp " + Math.round(n || 0).toLocaleString("id-ID");
+const todayStr = () => new Date().toISOString().slice(0,10);
+const $ = (id) => document.getElementById(id);
+
+function toast(msg){
+  const wrap = $("toastWrap");
+  const el = document.createElement("div");
+  el.className = "toast";
+  el.textContent = msg;
+  wrap.appendChild(el);
+  requestAnimationFrame(()=> el.classList.add("show"));
+  setTimeout(()=>{ el.classList.remove("show"); setTimeout(()=> el.remove(), 250); }, 2600);
+}
+
+function openModal(id){ $(id).classList.remove("hide"); }
+function closeModal(id){ $(id).classList.add("hide"); }
+document.querySelectorAll("[data-close]").forEach(btn=>{
+  btn.addEventListener("click", ()=> closeModal(btn.dataset.close));
+});
+
+function confirmAction(title, msg, onYes){
+  $("confirmTitle").textContent = title;
+  $("confirmMsg").textContent = msg;
+  confirmCallback = onYes;
+  openModal("confirmOverlay");
+}
+$("btnConfirmYes").addEventListener("click", ()=>{
+  if (confirmCallback) confirmCallback();
+  closeModal("confirmOverlay");
+});
+
+/* ===================== Computation ===================== */
+function computeLoan(loan){
+  const loanPayments = payments.filter(p => p.pinjaman_id === loan.id);
+  const totalDibayar = loanPayments.reduce((s,p)=> s + Number(p.nominal), 0);
+  const totalTagihan = Number(loan.nominal) + Number(loan.keuntungan || 0);
+  const sisaTagihan = Math.max(totalTagihan - totalDibayar, 0);
+  const keuntunganTerealisasi = totalTagihan > 0
+    ? Math.min(totalDibayar, totalTagihan) * (Number(loan.keuntungan||0) / totalTagihan)
+    : 0;
+  let status = "Aktif";
+  if (sisaTagihan <= 0.0001) status = "Lunas";
+  else if (loan.tanggal_jatuh_tempo < todayStr()) status = "Terlambat";
+  return {
+    ...loan,
+    totalTagihan, totalDibayar, sisaTagihan, keuntunganTerealisasi, status,
+    payments: loanPayments.sort((a,b)=> (b.tanggal||"").localeCompare(a.tanggal||"") || (b.created_at||"").localeCompare(a.created_at||""))
+  };
+}
+
+function getComputedLoans(){ return loans.map(computeLoan); }
+
+/* ===================== Data fetching ===================== */
+async function loadAll(){
+  const [{data: loanData, error: loanErr}, {data: payData, error: payErr}] = await Promise.all([
+    sb.from("peminjaman").select("*").order("created_at", {ascending:false}),
+    sb.from("pembayaran").select("*")
+  ]);
+  if (loanErr){ toast("Gagal memuat pinjaman: " + loanErr.message); console.error(loanErr); }
+  if (payErr){ toast("Gagal memuat pembayaran: " + payErr.message); console.error(payErr); }
+  loans = loanData || [];
+  payments = payData || [];
+  renderAll();
+}
+
+function renderAll(){
+  renderDashboard();
+  renderLoanList();
+  renderReport();
+}
+
+/* ===================== Dashboard ===================== */
+function renderDashboard(){
+  const cl = getComputedLoans();
+  const aktif = cl.filter(l => l.status === "Aktif" || l.status === "Terlambat");
+  const lunas = cl.filter(l => l.status === "Lunas");
+  const totalDipinjam = aktif.reduce((s,l)=> s + l.sisaTagihan, 0);
+  const totalKembali = cl.reduce((s,l)=> s + l.totalDibayar, 0);
+  const totalKeuntungan = cl.reduce((s,l)=> s + l.keuntunganTerealisasi, 0);
+  const jumlahPeminjam = new Set(cl.map(l=> l.nama.trim().toLowerCase())).size;
+
+  $("statsGrid").innerHTML = `
+    ${statCard("Pinjaman Aktif", aktif.length + " pinjaman")}
+    ${statCard("Pinjaman Lunas", lunas.length + " pinjaman")}
+    ${statCard("Uang Sedang Dipinjam", rupiah(totalDipinjam), true)}
+    ${statCard("Uang Sudah Kembali", rupiah(totalKembali), true)}
+    ${statCard("Total Keuntungan", rupiah(totalKeuntungan), true)}
+    ${statCard("Jumlah Peminjam", jumlahPeminjam + " orang")}
+  `;
+  $("dashSub").textContent = `${cl.length} total data pinjaman`;
+
+  const recent = cl.slice(0,5);
+  $("recentLoanList").innerHTML = recent.length
+    ? recent.map(loanRowHtml).join("")
+    : `<div class="empty">Belum ada data pinjaman. Klik "Tambah Pinjaman" untuk mulai.</div>`;
+  attachLoanRowClicks("recentLoanList");
+}
+function statCard(label, value, small){
+  return `<div class="stat-card"><div class="label">${label}</div><div class="value ${small?'small':''}">${value}</div></div>`;
+}
+
+/* ===================== Loan list / filter / search ===================== */
+function loanRowHtml(l){
+  const initials = l.nama.trim().split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase();
+  const badgeClass = l.status === "Lunas" ? "badge-lunas" : l.status === "Terlambat" ? "badge-terlambat" : "badge-aktif";
+  return `
+    <div class="loan-row" data-id="${l.id}">
+      <div class="avatar">${initials || "?"}</div>
+      <div class="main-info">
+        <div class="nm">${escapeHtml(l.nama)}</div>
+        <div class="meta"><span class="badge ${badgeClass}">${l.status}</span> &nbsp;Jatuh tempo: ${formatDate(l.tanggal_jatuh_tempo)}</div>
+      </div>
+      <div class="amt">
+        <div class="num">${rupiah(l.totalTagihan)}</div>
+        <div class="sisa">Sisa: ${rupiah(l.sisaTagihan)}</div>
+      </div>
+    </div>`;
+}
+function attachLoanRowClicks(containerId){
+  document.querySelectorAll(`#${containerId} .loan-row`).forEach(row=>{
+    row.addEventListener("click", ()=> openLoanDetail(row.dataset.id));
+  });
+}
+function escapeHtml(s){ const d=document.createElement("div"); d.textContent = s || ""; return d.innerHTML; }
+function formatDate(d){
+  if(!d) return "-";
+  const dt = new Date(d + "T00:00:00");
+  return dt.toLocaleDateString("id-ID", {day:"numeric", month:"short", year:"numeric"});
+}
+
+function renderLoanList(){
+  let cl = getComputedLoans();
+  if (currentFilter !== "semua") cl = cl.filter(l => l.status === currentFilter);
+  if (currentSearch.trim()){
+    const q = currentSearch.trim().toLowerCase();
+    cl = cl.filter(l => l.nama.toLowerCase().includes(q) || (l.whatsapp||"").toLowerCase().includes(q));
+  }
+  $("pinjamanSub").textContent = `${cl.length} data ditemukan`;
+  $("fullLoanList").innerHTML = cl.length
+    ? cl.map(loanRowHtml).join("")
+    : `<div class="empty">Tidak ada pinjaman yang cocok.</div>`;
+  attachLoanRowClicks("fullLoanList");
+}
+$("searchInput").addEventListener("input", (e)=>{ currentSearch = e.target.value; renderLoanList(); });
+document.querySelectorAll("#filterChips .chip").forEach(chip=>{
+  chip.addEventListener("click", ()=>{
+    document.querySelectorAll("#filterChips .chip").forEach(c=>c.classList.remove("active"));
+    chip.classList.add("active");
+    currentFilter = chip.dataset.f;
+    renderLoanList();
+  });
+});
+
+/* ===================== Add / Edit Loan ===================== */
+function openLoanModal(loanId){
+  $("loanFormErr").style.display = "none";
+  if (loanId){
+    const l = loans.find(x=>x.id === loanId);
+    $("loanModalTitle").textContent = "Edit Pinjaman";
+    $("loanId").value = l.id;
+    $("f_nama").value = l.nama;
+    $("f_whatsapp").value = l.whatsapp;
+    $("f_nominal").value = l.nominal;
+    $("f_keuntungan").value = l.keuntungan || 0;
+    $("f_tgl_pinjam").value = l.tanggal_pinjam;
+    $("f_tgl_jatuh_tempo").value = l.tanggal_jatuh_tempo;
+    $("f_tenor").value = l.tenor || "";
+    $("f_catatan").value = l.catatan || "";
+  } else {
+    $("loanModalTitle").textContent = "Tambah Pinjaman";
+    $("loanId").value = "";
+    ["f_nama","f_whatsapp","f_nominal","f_keuntungan","f_tenor","f_catatan"].forEach(id=> $(id).value = "");
+    $("f_tgl_pinjam").value = todayStr();
+    $("f_tgl_jatuh_tempo").value = "";
+  }
+  openModal("loanModalOverlay");
+}
+$("btnAddLoanDash").addEventListener("click", ()=> openLoanModal(null));
+$("btnAddLoanList").addEventListener("click", ()=> openLoanModal(null));
+
+$("btnSaveLoan").addEventListener("click", async ()=>{
+  const nama = $("f_nama").value.trim();
+  const whatsapp = $("f_whatsapp").value.trim();
+  const nominal = parseFloat($("f_nominal").value);
+  const keuntungan = parseFloat($("f_keuntungan").value) || 0;
+  const tgl_pinjam = $("f_tgl_pinjam").value;
+  const tgl_jatuh_tempo = $("f_tgl_jatuh_tempo").value;
+  const tenor = $("f_tenor").value.trim();
+  const catatan = $("f_catatan").value.trim();
+  const errEl = $("loanFormErr");
+
+  if (!nama || !whatsapp || !nominal || nominal <= 0 || !tgl_pinjam || !tgl_jatuh_tempo){
+    errEl.textContent = "Lengkapi semua field wajib (*) dengan benar.";
+    errEl.style.display = "block";
+    return;
+  }
+  errEl.style.display = "none";
+
+  const btn = $("btnSaveLoan");
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Menyimpan…';
+
+  const id = $("loanId").value;
+  const payload = { nama, whatsapp, nominal, keuntungan, tanggal_pinjam: tgl_pinjam, tanggal_jatuh_tempo: tgl_jatuh_tempo, tenor, catatan };
+
+  let error;
+  if (id){
+    ({error} = await sb.from("peminjaman").update(payload).eq("id", id));
+  } else {
+    ({error} = await sb.from("peminjaman").insert(payload));
+  }
+  btn.disabled = false; btn.textContent = "Simpan";
+
+  if (error){ toast("Gagal menyimpan: " + error.message); return; }
+  toast(id ? "Pinjaman diperbarui." : "Pinjaman ditambahkan.");
+  closeModal("loanModalOverlay");
+  await loadAll();
+});
+
+/* ===================== Loan Detail ===================== */
+function openLoanDetail(loanId){
+  const l = computeLoan(loans.find(x=>x.id === loanId));
+  const badgeClass = l.status === "Lunas" ? "badge-lunas" : l.status === "Terlambat" ? "badge-terlambat" : "badge-aktif";
+  const pct = l.totalTagihan > 0 ? Math.min(100, (l.totalDibayar / l.totalTagihan) * 100) : 0;
+  const waNumber = (l.whatsapp || "").replace(/[^0-9]/g,"");
+
+  $("detailBody").innerHTML = `
+    <div class="detail-top">
+      <div>
+        <div style="font-weight:700;font-size:17px;">${escapeHtml(l.nama)}</div>
+        <div style="font-size:12.5px;color:var(--ink-soft);margin-top:3px;">${escapeHtml(l.whatsapp)}</div>
+      </div>
+      <span class="badge ${badgeClass}">${l.status}</span>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+    <div style="font-size:12px;color:var(--ink-soft);">${pct.toFixed(0)}% terbayar</div>
+
+    <div class="detail-grid">
+      <div class="detail-item"><div class="label">Nominal Pinjaman</div><div class="value">${rupiah(l.nominal)}</div></div>
+      <div class="detail-item"><div class="label">Keuntungan/Biaya</div><div class="value">${rupiah(l.keuntungan)}</div></div>
+      <div class="detail-item"><div class="label">Total Tagihan</div><div class="value">${rupiah(l.totalTagihan)}</div></div>
+      <div class="detail-item"><div class="label">Total Pembayaran</div><div class="value">${rupiah(l.totalDibayar)}</div></div>
+      <div class="detail-item"><div class="label">Sisa Tagihan</div><div class="value">${rupiah(l.sisaTagihan)}</div></div>
+      <div class="detail-item"><div class="label">Keuntungan Terealisasi</div><div class="value">${rupiah(l.keuntunganTerealisasi)}</div></div>
+      <div class="detail-item"><div class="label">Tanggal Pinjam</div><div class="value" style="font-size:13px;">${formatDate(l.tanggal_pinjam)}</div></div>
+      <div class="detail-item"><div class="label">Jatuh Tempo</div><div class="value" style="font-size:13px;">${formatDate(l.tanggal_jatuh_tempo)}</div></div>
+      <div class="detail-item"><div class="label">Tenor</div><div class="value" style="font-size:13px;">${escapeHtml(l.tenor || "-")}</div></div>
+    </div>
+    ${l.catatan ? `<div class="detail-item" style="margin-bottom:14px;"><div class="label">Catatan</div><div style="font-size:13.5px;">${escapeHtml(l.catatan)}</div></div>` : ""}
+
+    <div class="actions-row">
+      ${l.status !== "Lunas" ? `<button class="btn btn-brand btn-sm" id="btnOpenPay">+ Tambah Pembayaran</button>` : ""}
+      <a class="btn btn-sm" href="https://wa.me/${waNumber}" target="_blank" rel="noopener">💬 Hubungi WhatsApp</a>
+      <button class="btn btn-sm" id="btnEditLoan">✎ Edit</button>
+      ${l.status === "Lunas" ? `<button class="btn btn-danger btn-sm" id="btnDeleteLoan">🗑 Hapus Permanen</button>` : ""}
+    </div>
+
+    <div class="section-head" style="padding:16px 0 10px;border-bottom:1px solid var(--line);">
+      <h2 style="font-size:14px;">Riwayat Pembayaran</h2>
+    </div>
+    <div>
+      ${l.payments.length ? l.payments.map(p=>`
+        <div class="history-item">
+          <span>${formatDate(p.tanggal)}</span>
+          <strong>${rupiah(p.nominal)}</strong>
+        </div>`).join("") : `<div class="empty" style="padding:24px 0;">Belum ada pembayaran.</div>`}
+    </div>
+  `;
+
+  const payBtn = $("btnOpenPay");
+  if (payBtn) payBtn.addEventListener("click", ()=>{
+    $("pay_loan_id").value = l.id;
+    $("pay_sisa_display").textContent = rupiah(l.sisaTagihan);
+    $("f_pay_nominal").value = "";
+    $("f_pay_nominal").max = l.sisaTagihan;
+    $("f_pay_tanggal").value = todayStr();
+    $("payFormErr").style.display = "none";
+    openModal("payModalOverlay");
+  });
+  $("btnEditLoan").addEventListener("click", ()=>{ closeModal("detailModalOverlay"); openLoanModal(l.id); });
+  const delBtn = $("btnDeleteLoan");
+  if (delBtn) delBtn.addEventListener("click", ()=>{
+    confirmAction("Hapus Riwayat Pinjaman?", `Data pinjaman ${l.nama} yang sudah lunas akan dihapus permanen. Tindakan ini tidak bisa dibatalkan.`, async ()=>{
+      const {error} = await sb.from("peminjaman").delete().eq("id", l.id);
+      if (error){ toast("Gagal menghapus: " + error.message); return; }
+      toast("Riwayat pinjaman dihapus.");
+      closeModal("detailModalOverlay");
+      await loadAll();
+    });
+  });
+
+  openModal("detailModalOverlay");
+}
+
+/* ===================== Payment ===================== */
+$("btnSavePay").addEventListener("click", async ()=>{
+  const loanId = $("pay_loan_id").value;
+  const nominal = parseFloat($("f_pay_nominal").value);
+  const tanggal = $("f_pay_tanggal").value || todayStr();
+  const errEl = $("payFormErr");
+  const l = computeLoan(loans.find(x=>x.id === loanId));
+
+  if (!nominal || nominal <= 0){
+    errEl.textContent = "Nominal pembayaran harus lebih dari 0.";
+    errEl.style.display = "block"; return;
+  }
+  if (nominal > l.sisaTagihan + 0.01){
+    errEl.textContent = `Nominal melebihi sisa tagihan (${rupiah(l.sisaTagihan)}). Pembayaran tidak boleh membuat sisa menjadi negatif.`;
+    errEl.style.display = "block"; return;
+  }
+  errEl.style.display = "none";
+
+  const btn = $("btnSavePay");
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Menyimpan…';
+  const {error} = await sb.from("pembayaran").insert({ pinjaman_id: loanId, nominal, tanggal });
+  btn.disabled = false; btn.textContent = "Simpan Pembayaran";
+
+  if (error){ toast("Gagal menyimpan pembayaran: " + error.message); return; }
+  toast("Pembayaran berhasil dicatat.");
+  closeModal("payModalOverlay");
+  closeModal("detailModalOverlay");
+  await loadAll();
+});
+
+/* ===================== Laporan ===================== */
+function renderReport(){
+  const cl = getComputedLoans();
+  const totalPinjaman = cl.reduce((s,l)=> s + l.nominal, 0);
+  const totalPembayaran = cl.reduce((s,l)=> s + l.totalDibayar, 0);
+  const totalKeuntungan = cl.reduce((s,l)=> s + l.keuntunganTerealisasi, 0);
+
+  $("reportGrid").innerHTML = `
+    ${statCard("Total Pinjaman", rupiah(totalPinjaman), true)}
+    ${statCard("Total Pembayaran", rupiah(totalPembayaran), true)}
+    ${statCard("Total Keuntungan", rupiah(totalKeuntungan), true)}
+  `;
+
+  // Monthly aggregation of payments
+  const monthMap = {};
+  payments.forEach(p=>{
+    const ym = (p.tanggal || "").slice(0,7);
+    if (!ym) return;
+    monthMap[ym] = (monthMap[ym]||0) + Number(p.nominal);
+  });
+  const sortedMonths = Object.keys(monthMap).sort();
+  const labels = sortedMonths.map(ym=>{
+    const [y,m] = ym.split("-");
+    return new Date(Number(y), Number(m)-1, 1).toLocaleDateString("id-ID",{month:"short", year:"2-digit"});
+  });
+  const dataVals = sortedMonths.map(ym=> monthMap[ym]);
+
+  const ctx = document.getElementById("monthlyChart").getContext("2d");
+  if (monthlyChartInstance) monthlyChartInstance.destroy();
+  const inkColor = getComputedStyle(document.documentElement).getPropertyValue("--ink").trim();
+  const lineColor = getComputedStyle(document.documentElement).getPropertyValue("--line").trim();
+  const brandColor = getComputedStyle(document.documentElement).getPropertyValue("--brand").trim();
+  monthlyChartInstance = new Chart(ctx, {
+    type: "bar",
+    data: { labels: labels.length ? labels : ["-"], datasets: [{ label: "Pembayaran Masuk", data: dataVals.length ? dataVals : [0], backgroundColor: brandColor, borderRadius: 5 }] },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display:false }, ticks: { color: inkColor } },
+        y: { grid: { color: lineColor }, ticks: { color: inkColor, callback: v => "Rp" + (v/1000) + "rb" } }
+      }
+    }
+  });
+}
+
+$("btnExportPdf").addEventListener("click", ()=>{
+  const cl = getComputedLoans();
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  doc.setFontSize(16);
+  doc.text("Laporan PinjamKu", 14, 18);
+  doc.setFontSize(10);
+  doc.text("Dicetak: " + new Date().toLocaleString("id-ID"), 14, 24);
+  doc.autoTable({
+    startY: 30,
+    head: [["Nama", "WhatsApp", "Nominal", "Total Dibayar", "Sisa", "Status"]],
+    body: cl.map(l => [l.nama, l.whatsapp, rupiah(l.nominal), rupiah(l.totalDibayar), rupiah(l.sisaTagihan), l.status]),
+    styles: { fontSize: 8 },
+    headStyles: { fillColor: [45,106,79] }
+  });
+  doc.save("laporan-pinjamku.pdf");
+  toast("PDF berhasil diunduh.");
+});
+
+$("btnExportExcel").addEventListener("click", ()=>{
+  const cl = getComputedLoans();
+  const rows = cl.map(l => ({
+    Nama: l.nama, WhatsApp: l.whatsapp, "Tanggal Pinjam": l.tanggal_pinjam, "Jatuh Tempo": l.tanggal_jatuh_tempo,
+    Nominal: l.nominal, Keuntungan: l.keuntungan, "Total Tagihan": l.totalTagihan,
+    "Total Dibayar": l.totalDibayar, "Sisa Tagihan": l.sisaTagihan, Status: l.status
+  }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Laporan");
+  XLSX.writeFile(wb, "laporan-pinjamku.xlsx");
+  toast("Excel berhasil diunduh.");
+});
+
+/* ===================== Navigation ===================== */
+function gotoPage(page){
+  ["dashboard","pinjaman","laporan"].forEach(p=>{
+    $("page-" + p).classList.toggle("hide", p !== page);
+  });
+  document.querySelectorAll(".nav-item[data-page]").forEach(b=> b.classList.toggle("active", b.dataset.page === page));
+  document.querySelectorAll("#mobileTab button[data-page]").forEach(b=> b.classList.toggle("active", b.dataset.page === page));
+  if (page === "laporan") renderReport();
+  window.scrollTo(0,0);
+}
+document.querySelectorAll(".nav-item[data-page]").forEach(b=> b.addEventListener("click", ()=> gotoPage(b.dataset.page)));
+document.querySelectorAll("#mobileTab button[data-page]").forEach(b=> b.addEventListener("click", ()=> gotoPage(b.dataset.page)));
+document.querySelectorAll("[data-goto]").forEach(b=> b.addEventListener("click", ()=> gotoPage(b.dataset.goto)));
+
+/* ===================== Theme ===================== */
+function applyTheme(mode){
+  if (mode === "dark"){ document.documentElement.setAttribute("data-theme","dark"); }
+  else { document.documentElement.setAttribute("data-theme","light"); }
+  $("themeSwitch").classList.toggle("on", mode === "dark");
+  $("themeLabel").textContent = mode === "dark" ? "Mode Gelap" : "Mode Terang";
+  try { localStorage.setItem("pinjamku-theme", mode); } catch(e){}
+  renderReport(); // refresh chart colors
+}
+$("themeSwitch").addEventListener("click", ()=>{
+  const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+  applyTheme(isDark ? "light" : "dark");
+});
+(function initTheme(){
+  let saved = null;
+  try { saved = localStorage.getItem("pinjamku-theme"); } catch(e){}
+  if (saved){ applyTheme(saved); }
+  else {
+    const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+    applyTheme(prefersDark ? "dark" : "light");
+  }
+})();
+
+/* ===================== Boot ===================== */
+async function boot(){
+  await loadAll();
+  $("loadingScreen").classList.add("hide");
+  $("appRoot").classList.remove("hide");
+  $("mobileTab").classList.remove("hide");
+}
+boot();
+
+/* Register service worker for PWA (only works when served over http(s), not file://) */
+if ("serviceWorker" in navigator && location.protocol.startsWith("http")){
+  window.addEventListener("load", ()=>{
+    navigator.serviceWorker.register("sw.js").catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>
